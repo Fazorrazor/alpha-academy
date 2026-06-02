@@ -1,0 +1,168 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isPublished(data) {
+      return data.status == 'published';
+    }
+
+    function hasActiveSubscription() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.subscription == 'active';
+    }
+
+    // Profiles
+    match /profiles/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) &&
+        request.resource.data.role == 'student' &&
+        request.resource.data.subscription == 'none';
+      allow update: if (isOwner(uid) &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'subscription', 'subscriptionPlan', 'subscriptionExpiresAt',
+                     'paystackCustomerCode', 'paystackSubscriptionCode', 'totalPoints', 'suspended']))
+        || isAdmin();
+      allow delete: if false; // soft deletes only via admin
+    }
+
+    // Subjects
+    match /subjects/{subjectId} {
+      allow read: if isPublished(resource.data) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Courses
+    match /courses/{courseId} {
+      allow read: if isPublished(resource.data) || isAdmin();
+      allow write: if isAdmin();
+
+      // Lessons (subcollection)
+      match /lessons/{lessonId} {
+        allow read: if isAdmin() ||
+          (isPublished(resource.data) && hasActiveSubscription());
+        allow write: if isAdmin();
+      }
+    }
+
+    // Quizzes
+    match /quizzes/{quizId} {
+      allow read: if isAdmin() ||
+        (isPublished(resource.data) && hasActiveSubscription());
+      allow write: if isAdmin();
+
+      // Quiz questions - never expose correctOptionIndex to client
+      match /questions/{questionId} {
+        allow read: if isAdmin();  // client reads via API which strips the answer
+        allow write: if isAdmin();
+      }
+    }
+
+    // Enrollments
+    match /enrollments/{enrollmentId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && 'uid' in resource.data && resource.data.uid == request.auth.uid);
+      allow create: if hasActiveSubscription() &&
+        request.resource.data.uid == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Progress
+    match /progress/{progressId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && 'uid' in resource.data && resource.data.uid == request.auth.uid);
+      allow create, update: if hasActiveSubscription() &&
+        request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Quiz attempts
+    match /quizAttempts/{attemptId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && 'uid' in resource.data && resource.data.uid == request.auth.uid);
+      allow create: if hasActiveSubscription() &&
+        request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Certificates
+    match /certificates/{certId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && 'uid' in resource.data && resource.data.uid == request.auth.uid);
+      allow write: if false; // written only by server
+    }
+
+    // Leaderboard
+    match /leaderboard/{uid} {
+      allow read: if isSignedIn();
+      allow write: if false; // written only by server
+    }
+
+    // Discussions
+    match /discussions/{threadId} {
+      allow read: if isSignedIn();
+      allow create: if hasActiveSubscription() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        !request.resource.data.isPinned &&
+        !request.resource.data.isLocked;
+      allow update: if isAdmin() ||
+        ('authorUid' in resource.data && isOwner(resource.data.authorUid) &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['isPinned', 'isLocked', 'replyCount']));
+      allow delete: if isAdmin();
+
+      match /replies/{replyId} {
+        allow read: if isSignedIn();
+        allow create: if hasActiveSubscription() &&
+          request.resource.data.authorUid == request.auth.uid &&
+          !get(/databases/$(database)/documents/discussions/$(threadId)).data.isLocked;
+        allow update: if isAdmin() ||
+          isOwner(resource.data.authorUid);
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && 'uid' in resource.data && resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() &&
+        'uid' in resource.data &&
+        resource.data.uid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if false; // server-only
+    }
+
+    // Subscription events
+    match /subscriptionEvents/{eventId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && 'uid' in resource.data && resource.data.uid == request.auth.uid);
+      allow write: if false; // server-only via webhook handler
+    }
+
+    // Audit logs
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+
+    // System events
+    match /systemEvents/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false; // server-only
+    }
+  }
+}

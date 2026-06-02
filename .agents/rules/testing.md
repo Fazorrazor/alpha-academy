@@ -1,0 +1,6 @@
+- Every new function in src/lib/ needs a corresponding test in src/lib/__tests__/
+- New Firestore rules changes need a rules test in tests/firestore.rules.test.ts
+- New Paystack webhook handling needs a test in tests/api/subscriptions.webhook.test.ts
+- Run npm run test:rules after any firestore.rules change
+- Coverage must not drop below: 90% for src/lib/, 80% for API routes
+- Test file naming: ComponentName.test.tsx for components, filename.test.ts for lib

@@ -1,0 +1,7 @@
+- All routes live under /api/v1/
+- Error responses always use apiError() — never raw NextResponse.json with manual status
+- Rate limiting applied to: progress (60/min), signed-url (30/min), quiz attempts (5/min), login (10/min), enrollment (10/min)
+- Cache invalidation required after any publish/unpublish action
+- Redis cache keys follow: catalog:subjects:v1, lesson:list:{courseId}:v1
+- Never cache subscription status — always read from Firestore
+- Webhook endpoints must return 200 even for unhandled event types

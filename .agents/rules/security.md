@@ -1,0 +1,8 @@
+- requireSession() is mandatory on every protected route — no exceptions
+- requireActiveSubscription() is mandatory on lesson, signed-url, quiz, progress routes
+- requireAdmin() is mandatory on every /api/v1/admin/* route
+- Paystack webhook routes must verify HMAC before any Firestore write
+- Webhook handlers must check for duplicate paystackReference before processing
+- Quiz questions API must strip correctOptionIndex before returning to client
+- Firestore rules and Storage rules changes require human review before deploy
+- Audit logs must be written for: role changes, publish/unpublish, asset upload/delete

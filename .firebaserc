@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "alpha-academy-staging",
+    "staging": "alpha-academy-staging",
+    "production": "alpha-academy-prod"
+  }
+}

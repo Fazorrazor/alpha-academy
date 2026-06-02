@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Public assets: thumbnails, marketing images
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // admin uploads via signed upload URL from server
+    }
+
+    // Course content: videos and PDFs
+    // Direct reads are ALWAYS denied — signed URLs only
+    match /course-content/{allPaths=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    // Certificates
+    // Students can read their own certificates only
+    match /certificates/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // server-only
+    }
+
+    // Block everything else by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

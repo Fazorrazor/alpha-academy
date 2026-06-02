@@ -1,0 +1,7 @@
+- TypeScript strict mode — no implicit any, no type assertions without justification
+- All Firestore document shapes must match types in src/lib/types.ts
+- Use Zod for all API input validation before touching Firestore
+- Keep API route handlers thin — business logic goes in src/lib/ service functions
+- All environment variables validated at startup in src/lib/config.ts
+- Never import firebase-admin in client components or client-side code
+- Component files: PascalCase. Utility files: camelCase. Route files: route.ts
